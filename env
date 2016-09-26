@@ -1,0 +1,1 @@
+export DB_HOST=10.2.2.2;export DB_PORT=30519;export DB_USERNAME=mongodb;export DB_PASSWORD=mongodb; export DB_NAME=mongodb

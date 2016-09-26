@@ -1,0 +1,18 @@
+MLB Parks:
+Add:
+curl -i -X POST -H 'Content-Type: application/json' -d '{"name":"mlbparks","displayName":"MLB Parks","url":"http://mlbparks-roadshow.127.0.0.1.xip.io", "center":{"latitude": "0", "longitude":"0"},"zoom":1}' http://parksviewer.apps.127.0.0.1.xip.io/ws/backends/
+
+Delete:
+curl -i -X DELETE -H 'Content-Type: application/json' -d '{"name":"mlbparks","displayName":"MLB Parks","url":"http://mlbparks-roadshow.127.0.0.1.xip.io", "center":{"latitude": "0", "longitude":"0"},"zoom":1}' http://parksviewer.apps.127.0.0.1.xip.io/ws/backends/
+
+
+NationalParks:
+Add:
+curl -i -X POST -H 'Content-Type: application/json' -d '{"name":"nationalparks","displayName":"National Parks","url":"http://nationalparks-roadshow.127.0.0.1.xip.io", "center":{"latitude": "0", "longitude":"0"},"zoom":"1"}' http://parksviewer.apps.127.0.0.1.xip.io/ws/backends/
+
+Delete:
+curl -i -X DELETE -H 'Content-Type: application/json' -d '{"name":"nationalparks","displayName":"National Parks","url":"http://nationalparks-roadshow.127.0.0.1.xip.io", "center":{"latitude": "0", "longitude":"0"},"zoom":1}' http://parksviewer.apps.127.0.0.1.xip.io/ws/backends/
+
+List:
+curl -i -X GET -H 'Content-Type: application/json'  http://parksviewer.apps.127.0.0.1.xip.io/ws/backends/
+

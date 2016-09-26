@@ -1,0 +1,54 @@
+= Parksmap application
+This application is a frontend web and gateway to backend services that provide geolocation data on services
+
+
+== Installation
+As the application needs to interact with openshift's API, you'll need to provide some permissions to the default ServiceAccount for that.
+
+Assuming you're using the project <roadshow>:
+
+----
+oc new-project roadshow
+oc policy add-role-to-user view system:serviceaccount:roadshow:default
+oc create -f ./ose3/application-template.json
+oc new-app parksmap-web
+----
+
+There's some options that can be parameterized:
+
+* APPLICATION_NAME: Name of the application
+* MAVEN_MIRROR_URL: Url of a maven mirror 
+* APPLICATION_HOSTNAME: Hostname/route to access your application
+
+Example:
+
+----
+oc new-app parksmap-web -p APPLICATION_NAME=parksviewer -p APPLICATION_HOSTNAME=parksviewer.apps.127.0.0.1.xip.io -p MAVEN_MIRROR_URL=http://nexus.ci:8081/content/groups/public
+----
+
+
+== Use
+Once the application has been deployed, you can manually register/unregister a backend:
+
+=== Register
+To register a backend:
+
+----
+curl -i -X POST -H 'Content-Type: application/json' -d '{"name":"mlbparks","displayName":"MLB Parks","url":"http://mlbparks-roadshow.127.0.0.1.xip.io", "center":{"latitude": "0", "longitude":"0"},"zoom":1}' http://parksviewer.apps.127.0.0.1.xip.io/ws/backends/
+curl -i -X POST -H 'Content-Type: application/json' -d '{"name":"nationalparks","displayName":"National Parks","url":"http://nationalparks-roadshow.127.0.0.1.xip.io", "center":{"latitude": "0", "longitude":"0"},"zoom":"1"}' http://parksviewer.apps.127.0.0.1.xip.io/ws/backends/
+----
+
+=== Unregister
+To unregister a backend:
+
+----
+curl -i -X DELETE -H 'Content-Type: application/json' -d '{"name":"mlbparks","displayName":"MLB Parks","url":"http://mlbparks-roadshow.127.0.0.1.xip.io", "center":{"latitude": "0", "longitude":"0"},"zoom":1}' http://parksviewer.apps.127.0.0.1.xip.io/ws/backends/
+curl -i -X DELETE -H 'Content-Type: application/json' -d '{"name":"nationalparks","displayName":"National Parks","url":"http://nationalparks-roadshow.127.0.0.1.xip.io", "center":{"latitude": "0", "longitude":"0"},"zoom":1}' http://parksviewer.apps.127.0.0.1.xip.io/ws/backends/
+----
+
+=== List backend
+To list available backends:
+
+----
+curl -i -X GET -H 'Content-Type: application/json'  http://parksviewer.apps.127.0.0.1.xip.io/ws/backends/
+----
