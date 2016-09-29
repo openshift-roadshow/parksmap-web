@@ -57,9 +57,9 @@
 /*
 
  backend{
-    name: "name";
+    id: "name";
     displayName: "displayName";
-    url: "url",
+    service: "service|url",
     center: ["",""],
     zoom: 1,
     visible: true,
@@ -67,7 +67,7 @@
  };
  */
     /************************
-     * END OF WEBSOCKETS COMM
+     * BEGIN OF WEBSOCKETS COMM
      ************************/
     var stompClient = null;
 
@@ -82,16 +82,18 @@
             });
             stompClient.subscribe('/topic/remove', function(message){
                 var backend = getBackend(JSON.parse(message.body));
-                removeBackend(backend.name);
+                removeBackend(backend.id);
             });
         });
     }
+    // TODO: Reconnect automatically. When redeploying application, need to reconnect, otherwise page needs to be reloaded
+    // Look for solution like: https://github.com/jmesnil/stomp-websocket/issues/81#issuecomment-246854734
 
     var getBackend = function(backendFromServer){
         var backend = {
-            name: backendFromServer.name,
+            id: backendFromServer.id,
             displayName: backendFromServer.displayName,
-            url: backendFromServer.url,
+            service: backendFromServer.service,
             center: backendFromServer.center,
             zoom: backendFromServer.zoom,
             visible: true,
@@ -125,8 +127,8 @@
 			streets = L.tileLayer(mbUrl, {id: 'mapbox.streets', attribution: mbAttr});
 
 	var map = L.map('map', {
-		center: [39.82, -98.57],
-		zoom: 5,
+		center: [27.60567, -18.19336],
+		zoom: 3,
 		layers: [grayscale]
 	});
 
@@ -141,39 +143,43 @@
 	controls.addTo(map);
 
 	function addBackend(backend){
-		console.log("Adding layer for backend: " + backend.name);
+		console.log("Adding layer for backend: " + backend.id);
 
         // Check that the backend (by name did not exist, in which case, we'll remove the old one)
-        if (backends.has(backend.name)){
-            console.log("Removing old backend: " + backend.name);
-            removeBackend(backend.name);
+        if (backends.has(backend.id)){
+            console.log("Removing old backend: " + backend.id);
+            removeBackend(backend.id);
         }
 
-        backends.set(backend.name, backend);
+        backends.set(backend.id, backend);
 
 		map.addLayer(backend.layer);
 		controls.addOverlay(backend.layer, backend.displayName);
 
         // Expected dataPoint { name, latitude, longitude }
-		$.get(backend.url + "/ws/data/", function(data){
+		$.get("/ws/data/"+backend.id, function(data){
 			for (var i = 0; i < data.length; i++){
 				dataPoint = data[i];
 				var popupInformation = "<b>" + dataPoint.name + "</b></br>";
+				// TODO: Work additionalInfo
 				var marker = L.marker([dataPoint.latitude, dataPoint.longitude]).bindPopup(popupInformation);
 				// console.log("Data: " + dataPoint.name + " ("+ dataPoint.latitude + "," + dataPoint.longitude + ")=" + popupInformation);
 				marker.addTo(backend.layer);
 			}
 		}, "json");
+
+		// Focus map on the backend center and zoom
+		map.setView([backend.center.latitude, backend.center.longitude], backend.zoom);
 	}
 
-	function removeBackend(backendName){
-	    if (backends.has(backendName)) {
-            var backend = backends.get(backendName);
+	function removeBackend(backendId){
+	    if (backends.has(backendId)) {
+            var backend = backends.get(backendId);
             controls.removeLayer(backend.layer);
             map.removeLayer(backend.layer);
-            backends.delete(backend.name);
+            backends.delete(backend.id);
         } else{
-            console.log("Trying to remove a non existant backend: " + backendName);
+            console.log("Trying to remove a non existant backend: " + backendId);
         }
 	}
 
@@ -195,6 +201,11 @@
 	}, 5000);
 
 	map.whenReady(initialLoad).whenReady(connect);
+	map.on('moveend', function() {
+		console.log("map was panned!");
+		console.log("zoom: " + map.getZoom());    // prints out zoom level
+		console.log("center: " + map.getCenter());    // prints out map center
+	});
 
 </script>
 </body>

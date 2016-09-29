@@ -1,4 +1,4 @@
-package com.openshift.evg.roadshow.rest.model;
+package com.openshift.evg.roadshow.rest.gateway.model;
 
 import java.util.List;
 

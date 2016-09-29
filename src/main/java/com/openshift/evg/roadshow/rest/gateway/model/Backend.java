@@ -1,15 +1,15 @@
-package com.openshift.evg.roadshow.rest.model;
-
-import com.openshift.evg.roadshow.rest.model.Coordinates;
+package com.openshift.evg.roadshow.rest.gateway.model;
 
 /**
+ * This represents a backend. Once a backend is registered, a call to the
+ * backend to get this information about it will be issued.
  *
  * Created by jmorales on 24/08/16.
  */
 public class Backend {
-    private String name;
+    private String id;
     private String displayName;
-    private String url;
+    private String service;
 
     private Coordinates center = new Coordinates("0", "0");
     private int zoom = 1;
@@ -18,26 +18,26 @@ public class Backend {
     public Backend() {
     }
 
-    public Backend(String name, String displayName, String url) {
-        this.name = name;
+    public Backend(String id, String displayName, String service) {
+        this.id = id;
         this.displayName = displayName;
-        url = url;
+        this.service = service;
     }
 
-    public Backend(String name, String displayName, String url, Coordinates center, int zoom) {
-        this.name = name;
+    public Backend(String id, String displayName, String service, Coordinates center, int zoom) {
+        this.id = id;
         this.displayName = displayName;
-        this.url = url;
+        this.service = service;
         this.center = center;
         this.zoom = zoom;
     }
 
-    public String getName() {
-        return name;
+    public String getId() {
+        return id;
     }
 
-    public void setName(String name) {
-        this.name = name;
+    public void setId(String id) {
+        this.id = id;
     }
 
     public String getDisplayName() {
@@ -48,12 +48,12 @@ public class Backend {
         this.displayName = displayName;
     }
 
-    public String getUrl() {
-        return url;
+    public String getService() {
+        return service;
     }
 
-    public void setUrl(String url) {
-        this.url = url;
+    public void setService(String service) {
+        this.service = service;
     }
 
     public Coordinates getCenter() {
@@ -75,9 +75,9 @@ public class Backend {
     @Override
     public String toString() {
         return "Backend{" +
-                "name='" + name + '\'' +
+                "id='" + id + '\'' +
                 ", displayName='" + displayName + '\'' +
-                ", url='" + url + '\'' +
+                ", service='" + service + '\'' +
                 ", center='" + center + '\'' +
                 ", zoom='" + zoom + '\'' +
                 '}';

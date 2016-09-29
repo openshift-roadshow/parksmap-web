@@ -27,6 +27,42 @@ oc new-app parksmap-web -p APPLICATION_NAME=parksviewer -p APPLICATION_HOSTNAME=
 ----
 
 
+== Backends
+Every backend should provide an endpoint located at */ws/info* that will provide link:src/main/java/com/openshift/evg/roadshow/rest/gateway/model/Backend.java[Backend] information.
+
+Here you can find 2 sample implementations:
+
+* Springboot:
+
+[source,java]
+----
+@RequestMapping("/ws/info")
+@RestController
+public class BackendController{
+
+    @RequestMapping(method = RequestMethod.GET, value = "/", produces = "application/json")
+    public Backend get() {
+        return new Backend(....);
+    }
+}
+----
+
+* JEE:
+
+[source,java]
+----
+@Path("/ws/info")
+public class BackendController{
+    @GET
+    @Path("/")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Backend get() {
+        return new Backend(....);
+    }
+}
+----
+
+
 == Use
 Once the application has been deployed, you can manually register/unregister a backend:
 
@@ -34,16 +70,16 @@ Once the application has been deployed, you can manually register/unregister a b
 To register a backend:
 
 ----
-curl -i -X POST -H 'Content-Type: application/json' -d '{"name":"mlbparks","displayName":"MLB Parks","url":"http://mlbparks-roadshow.127.0.0.1.xip.io", "center":{"latitude": "0", "longitude":"0"},"zoom":1}' http://parksviewer.apps.127.0.0.1.xip.io/ws/backends/
-curl -i -X POST -H 'Content-Type: application/json' -d '{"name":"nationalparks","displayName":"National Parks","url":"http://nationalparks-roadshow.127.0.0.1.xip.io", "center":{"latitude": "0", "longitude":"0"},"zoom":"1"}' http://parksviewer.apps.127.0.0.1.xip.io/ws/backends/
+curl -i -X POST -H 'Content-Type: application/json' -d '{"id":"nationalparks","service":"http://nationalparks:8080"}' http://parksviewer.apps.127.0.0.1.xip.io/ws/backends/
+curl -i -X POST -H 'Content-Type: application/json' -d '{"id":"mlbparks","service":"http://mlbparks:8080"}' http://parksviewer.apps.127.0.0.1.xip.io/ws/backends/
 ----
 
 === Unregister
 To unregister a backend:
 
 ----
-curl -i -X DELETE -H 'Content-Type: application/json' -d '{"name":"mlbparks","displayName":"MLB Parks","url":"http://mlbparks-roadshow.127.0.0.1.xip.io", "center":{"latitude": "0", "longitude":"0"},"zoom":1}' http://parksviewer.apps.127.0.0.1.xip.io/ws/backends/
-curl -i -X DELETE -H 'Content-Type: application/json' -d '{"name":"nationalparks","displayName":"National Parks","url":"http://nationalparks-roadshow.127.0.0.1.xip.io", "center":{"latitude": "0", "longitude":"0"},"zoom":1}' http://parksviewer.apps.127.0.0.1.xip.io/ws/backends/
+curl -i -X DELETE -H 'Content-Type: application/json' -d '{"id":"nationalparks","service":"http://nationalparks:8080"}' http://parksviewer.apps.127.0.0.1.xip.io/ws/backends/
+curl -i -X DELETE -H 'Content-Type: application/json' -d '{"id":"mlbparks","service":"http://mlbparks:8080"}' http://parksviewer.apps.127.0.0.1.xip.io/ws/backends/
 ----
 
 === List backend

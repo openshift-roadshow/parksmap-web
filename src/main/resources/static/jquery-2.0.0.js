@@ -6388,7 +6388,7 @@ function getWidthOrHeight( elem, name, extra ) {
 		val = parseFloat( val ) || 0;
 	}
 
-	// use the active box-sizing com.openshift.evg.roadshow.rest.model to add/subtract irrelevant styles
+	// use the active box-sizing com.openshift.evg.roadshow.rest.gateway.model to add/subtract irrelevant styles
 	return ( val +
 		augmentWidthOrHeight(
 			elem,

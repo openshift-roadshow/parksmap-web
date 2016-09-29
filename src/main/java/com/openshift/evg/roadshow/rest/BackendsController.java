@@ -1,9 +1,9 @@
 package com.openshift.evg.roadshow.rest;
 
-import com.openshift.evg.roadshow.rest.model.Backend;
-import com.openshift.evg.roadshow.rest.model.Coordinates;
+import com.openshift.evg.roadshow.rest.gateway.ApiGatewayController;
+import com.openshift.evg.roadshow.rest.gateway.DataGatewayController;
+import com.openshift.evg.roadshow.rest.gateway.model.Backend;
 import io.fabric8.kubernetes.api.model.Service;
-import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientException;
 import io.fabric8.kubernetes.client.Watcher;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,6 +33,14 @@ public class BackendsController implements Watcher<Service> {
 
     @Autowired
     private SimpMessagingTemplate messagingTemplate;
+
+    @Autowired
+    private ApiGatewayController apiGateway;
+
+
+    @Autowired
+    private DataGatewayController dataGateway;
+
 
     Map<String, Backend> backends = new HashMap<String, Backend>();
 
@@ -71,22 +79,48 @@ public class BackendsController implements Watcher<Service> {
 
     @RequestMapping(method = RequestMethod.POST, value = "/", produces = "application/json", consumes = "application/json")
     public List<Backend> register(@RequestBody Backend backend) {
+        // TODO: Change the Backend to just id and service
         System.out.println("[INFO] Backends.register(" + backend + ")");
 
-        backends.put(backend.getName(), backend);
-        // Notify web
-        messagingTemplate.convertAndSend("/topic/add", backend);
+        if (backends.get(backend.getId())==null) {
+            apiGateway.addBackend(backend.getId(), backend.getService());
+            dataGateway.addBackend(backend.getId(), backend.getService());
 
+            // Query for backend data.
+            Backend newBackend = apiGateway.get(backend.getId());
+
+            backends.put(backend.getId(), newBackend);
+
+            System.out.println("[INFO] Backend from server: " + newBackend);
+            // Notify web
+            messagingTemplate.convertAndSend("/topic/add", newBackend);
+        }else{
+            System.out.println("[INFO] Backend with provided id (" + backend + ") already registered");
+        }
         return new ArrayList<Backend>(backends.values());
     }
 
     @RequestMapping(method = RequestMethod.DELETE, value = "/", produces = "application/json", consumes = "application/json")
     public List<Backend> delete(@RequestBody Backend backend) {
-
+        // TODO: Change the Backend to just id
         System.out.println("[INFO] Backends.delete(" + backend + ")");
-        backends.remove(backend.getName());
-        // Notify web
-        messagingTemplate.convertAndSend("/topic/remove", backend);
+
+        if (backends.get(backend.getId())!=null) {
+            // Query for backend data.
+            Backend newBackend = apiGateway.get(backend.getId());
+            backends.put(backend.getId(), newBackend);
+
+            backends.remove(newBackend.getId());
+            // Notify web
+            messagingTemplate.convertAndSend("/topic/remove", newBackend);
+
+
+            apiGateway.removeBackend(backend.getId());
+            dataGateway.removeBackend(backend.getId());
+        }else{
+            System.out.println("[INFO] No backend with provided id (" + backend + ")");
+        }
+
 
         return new ArrayList<Backend>(backends.values());
     }
