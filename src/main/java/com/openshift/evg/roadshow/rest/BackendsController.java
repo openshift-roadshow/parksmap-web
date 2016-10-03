@@ -3,13 +3,22 @@ package com.openshift.evg.roadshow.rest;
 import com.openshift.evg.roadshow.rest.gateway.ApiGatewayController;
 import com.openshift.evg.roadshow.rest.gateway.DataGatewayController;
 import com.openshift.evg.roadshow.rest.gateway.model.Backend;
+import io.fabric8.kubernetes.api.model.Endpoints;
 import io.fabric8.kubernetes.api.model.Service;
+import io.fabric8.kubernetes.api.model.ServiceList;
+import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientException;
+import io.fabric8.kubernetes.client.Watch;
 import io.fabric8.kubernetes.client.Watcher;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.web.bind.annotation.*;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import javax.annotation.PostConstruct;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -18,18 +27,29 @@ import java.util.Map;
 /**
  * Backend controller. Every time a backend appears/dissapears in OpenShift
  * it will send a notification to the web to show/hide the appropriate layer/map
- *
+ * <p>
  * Created by jmorales on 24/08/16.
  */
 @RestController
 @RequestMapping("/ws/backends")
 public class BackendsController implements Watcher<Service> {
 
-    public static final String PARKSMAP_BACKEND = "parksmap-backend";
+    private static final Logger logger = LoggerFactory.getLogger(BackendsController.class);
 
-    // TODO: Fix the kubernetes client to do auto-discovery
-//    @Autowired
-//    private KubernetesClient client;
+    private static final String PARKSMAP_BACKEND = "type=parksmap-backend";
+
+    @Value("${parksmap.namespace}")
+    private String NAMESPACE;
+
+    @Value("${parksmap.domain}")
+    private String LOCAL_DOMAIN;
+
+    @Value("${parksmap.backends.port}")
+    private String BACKENDS_PORT;
+
+    @Autowired
+    private KubernetesClient client;
+    private Watch watch;
 
     @Autowired
     private SimpMessagingTemplate messagingTemplate;
@@ -37,16 +57,39 @@ public class BackendsController implements Watcher<Service> {
     @Autowired
     private ApiGatewayController apiGateway;
 
-
     @Autowired
     private DataGatewayController dataGateway;
 
-
-    Map<String, Backend> backends = new HashMap<String, Backend>();
+    private Map<String, Backend> registeredBackends = new HashMap<String, Backend>();
 
     BackendsController() {
-        // Add a watcher to the backend services
-//        client.services().withLabelIn(PARKSMAP_BACKEND).watch(this);
+        if (client != null) {
+            logger.info("KubernetesClient configured");
+        } else {
+            logger.info("KubernetesClient configured");
+        }
+    }
+
+    /*
+     * This method will append port 8080 to services not ending with .cup (so that are not a route)
+     */
+    private final String getURLforService(String service) {
+        if (service.endsWith(LOCAL_DOMAIN)) {
+            return "http://" + service;
+        } else {
+            return "http://" + service + (BACKENDS_PORT != null ? ":" + BACKENDS_PORT : "");
+        }
+    }
+
+
+    private void addServiceEndpoint(String serviceName, String serviceUrl) {
+        logger.info("AddServiceEndpoint: {} - {}", serviceName, serviceUrl);
+        register(serviceUrl);
+    }
+
+    private void removeServiceEndpoint(String serviceName, String serviceUrl) {
+        logger.info("Service {} - {} deleted", serviceName, serviceUrl);
+        unregister(serviceUrl);
     }
 
     /**
@@ -57,80 +100,118 @@ public class BackendsController implements Watcher<Service> {
      */
     @Override
     public void eventReceived(Action action, Service service) {
-        if (action==Action.ADDED) {
-            System.out.println("Service " + service.getMetadata().getName() + " added");
-            // TODO: create the Backend and call register
-        }else if (action==Action.DELETED){
-            System.out.println("Service " + service.getMetadata().getName() + " deleted");
-            // TODO: create the Backend and call unregister
+        logger.info("Action: {}, Service: {}", action, service);
+
+        /*
+         * For testing purposes, we can set a route label that will be used to get to the service
+         * instead of the service name. This is for external testing.
+         */
+        String serviceName = service.getMetadata().getName();
+        String serviceurl = service.getMetadata().getLabels().get("route");
+        if (serviceurl == null) {
+            serviceurl = serviceName;
+        }
+        if (action == Action.ADDED) {
+            logger.info("Service {} added", serviceurl);
+            addServiceEndpoint(serviceName, serviceurl);
+        } else if (action == Action.DELETED) {
+            logger.info("Service {} deleted", serviceurl);
+            removeServiceEndpoint(serviceName, serviceurl);
+        } else if (action == Action.MODIFIED) {
+            // TODO: Modification of a service is cumbersome. Look into how to best implement this
+            unregister(serviceurl);
+            register(serviceurl);
+        } else if (action == Action.ERROR) {
+            logger.error("Service ERRORED");
         }
     }
 
     /**
      * This will get notified when Kubernetes client is closed
+     *
      * @param e
      */
     @Override
     public void onClose(KubernetesClientException e) {
-        System.out.println("There was an error in the client: " + e.getMessage());
+        logger.error("There was an error in the client {}", e.getMessage());
+        if (watch != null) watch.close();
     }
 
+    /**
+     * This method is used to start monitoring for services
+     */
+    @RequestMapping(method = RequestMethod.GET, value = "/init")
+    @PostConstruct
+    public void init() {
+        logger.info("Watching for services started");
 
-
-    @RequestMapping(method = RequestMethod.POST, value = "/", produces = "application/json", consumes = "application/json")
-    public List<Backend> register(@RequestBody Backend backend) {
-        // TODO: Change the Backend to just id and service
-        System.out.println("[INFO] Backends.register(" + backend + ")");
-
-        if (backends.get(backend.getId())==null) {
-            apiGateway.addBackend(backend.getId(), backend.getService());
-            dataGateway.addBackend(backend.getId(), backend.getService());
-
-            // Query for backend data.
-            Backend newBackend = apiGateway.get(backend.getId());
-
-            backends.put(backend.getId(), newBackend);
-
-            System.out.println("[INFO] Backend from server: " + newBackend);
-            // Notify web
-            messagingTemplate.convertAndSend("/topic/add", newBackend);
-        }else{
-            System.out.println("[INFO] Backend with provided id (" + backend + ") already registered");
-        }
-        return new ArrayList<Backend>(backends.values());
-    }
-
-    @RequestMapping(method = RequestMethod.DELETE, value = "/", produces = "application/json", consumes = "application/json")
-    public List<Backend> delete(@RequestBody Backend backend) {
-        // TODO: Change the Backend to just id
-        System.out.println("[INFO] Backends.delete(" + backend + ")");
-
-        if (backends.get(backend.getId())!=null) {
-            // Query for backend data.
-            Backend newBackend = apiGateway.get(backend.getId());
-            backends.put(backend.getId(), newBackend);
-
-            backends.remove(newBackend.getId());
-            // Notify web
-            messagingTemplate.convertAndSend("/topic/remove", newBackend);
-
-
-            apiGateway.removeBackend(backend.getId());
-            dataGateway.removeBackend(backend.getId());
-        }else{
-            System.out.println("[INFO] No backend with provided id (" + backend + ")");
+        // Get the list of current services and register them, and then watch for changes
+        ServiceList services = client.services().inNamespace(NAMESPACE).withLabel(PARKSMAP_BACKEND).list();
+        for (Service service : services.getItems()) {
+            String serviceName = service.getMetadata().getName();
+            String serviceurl = service.getMetadata().getLabels().get("route");
+            if (serviceurl == null) {
+                serviceurl = serviceName;
+            }
+            // register(serviceurl);
+            addServiceEndpoint(serviceName, serviceurl);
         }
 
+        // TODO: This code needs to move to a proper initialization place
+        watch = client.services().inNamespace(NAMESPACE).withLabel(PARKSMAP_BACKEND).watch(this);
+    }
 
-        return new ArrayList<Backend>(backends.values());
+    /**
+     * @param
+     * @return
+     */
+    @RequestMapping(method = RequestMethod.GET, value = "/register", produces = "application/json")
+    public List<Backend> register(@RequestParam(value = "service") String service) {
+        logger.info("Backends.register service at ({})", service);
+
+        Backend newBackend = null;
+        // Query for backend data.
+        if ((newBackend = apiGateway.getFromRemote(getURLforService(service))) != null) {
+            if (registeredBackends.get(service) == null) {
+                // TODO: BackendId should not be fetched from remote. For now I replace the remote one with the local one.
+                newBackend.setId(service);
+                // Register the new backend
+                apiGateway.add(service, getURLforService(service));
+                dataGateway.add(service, getURLforService(service));
+                registeredBackends.put(service, newBackend);
+
+                logger.info("Backend from server: ({}) ", newBackend);
+                // Notify web
+                messagingTemplate.convertAndSend("/topic/add", newBackend);
+            } else {
+                logger.info("Backend with provided id ({}) already registered", service);
+            }
+        }
+        return new ArrayList<Backend>(registeredBackends.values());
+    }
+
+    @RequestMapping(method = RequestMethod.GET, value = "/unregister", produces = "application/json")
+    public List<Backend> unregister(@RequestParam(value = "service") String service) {
+        logger.info("Backends.unregister service at ({})", service);
+
+        Backend backend = null;
+        if ((backend = registeredBackends.get(service)) != null) {
+            messagingTemplate.convertAndSend("/topic/remove", backend); // Notify web
+
+            registeredBackends.remove(service);
+            apiGateway.remove(service);
+            dataGateway.remove(service);
+        } else {
+            logger.info("No backend at ({})", service);
+        }
+        return new ArrayList<Backend>(registeredBackends.values());
     }
 
 
-    @RequestMapping(method = RequestMethod.GET, value = "/", produces = "application/json")
+    @RequestMapping(method = RequestMethod.GET, value = "/list", produces = "application/json")
     public List<Backend> getAll() {
-        System.out.println("[INFO] Backends: getAll");
-
-        return new ArrayList<Backend>(backends.values());
+        logger.info("Backends: getAll");
+        return new ArrayList<Backend>(registeredBackends.values());
     }
 
 }

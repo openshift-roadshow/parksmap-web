@@ -1,20 +1,15 @@
 package com.openshift.evg.roadshow.rest.gateway;
 
-import com.openshift.evg.roadshow.rest.gateway.api.BackendServiceLocal;
-import com.openshift.evg.roadshow.rest.gateway.api.BackendServiceRemote;
 import com.openshift.evg.roadshow.rest.gateway.api.DataServiceRemote;
-import com.openshift.evg.roadshow.rest.gateway.model.Backend;
 import com.openshift.evg.roadshow.rest.gateway.model.DataPoint;
 import feign.Feign;
-import feign.gson.GsonDecoder;
-import feign.gson.GsonEncoder;
 import feign.jackson.JacksonDecoder;
 import feign.jackson.JacksonEncoder;
 import feign.jaxrs.JAXRSContract;
-import feign.slf4j.Slf4jLogger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -28,39 +23,51 @@ import java.util.Map;
 @RequestMapping("/ws/data")
 public class DataGatewayController {
 
+    private static final Logger logger = LoggerFactory.getLogger(DataGatewayController.class);
+    
     private Map<String, DataServiceRemote> remoteServices = new HashMap<String, DataServiceRemote>();
 
     public DataGatewayController(){
     }
 
-    public final void addBackend(String backendId, String url){
+    /**
+     *
+     * @param backendId
+     * @param url
+     */
+    public final void add(String backendId, String url){
         if (remoteServices.get(backendId)==null) {
             remoteServices.put(backendId, Feign.builder().contract(new JAXRSContract()).encoder(new JacksonEncoder())
                     .decoder(new JacksonDecoder()).target(DataServiceRemote.class, url));
-            System.out.println("[INFO] Backend ("+backendId+") added to the Data Gateway");
+            logger.info("Backend ({}) added to the Data Gateway", backendId);
         }else{
-            System.out.println("[ERROR] This backend ("+backendId+") did already exist in the Data Gateway");
+            logger.error("This backend ({}) did already exist in the Data Gateway", backendId);
         }
     }
 
-    public final void removeBackend(String backendId){
+    /**
+     *
+     * @param backendId
+     */
+    public final void remove(String backendId){
         if (remoteServices.get(backendId)!=null) {
             remoteServices.remove(backendId);
-            System.out.println("[INFO] Backend ("+backendId+") removed from the Data Gateway");
+            logger.info("Backend ({}) removed from the Data Gateway", backendId);
         }else{
-            System.out.println("[ERROR] This backend ("+backendId+") did NOT exist in the Data Gateway");
+            logger.error("This backend ({}) did NOT exist in the Data Gateway", backendId);
         }
     }
 
-    @RequestMapping(method = RequestMethod.GET, value = "/{id}", produces = "application/json")
-    public List<DataPoint> within(@PathVariable("id") String id) {
-        DataServiceRemote remote = remoteServices.get(id);
+
+    @RequestMapping(method = RequestMethod.GET, value = "/all", produces = "application/json")
+    public List<DataPoint> getAll(@RequestParam(value="service") String serviceURL) {
+        DataServiceRemote remote = remoteServices.get(serviceURL);
         if (remote!=null){
-            System.out.println("Calling remote service for " + id);
-            return remote.getAllParks();
+            logger.info("[WEB-CALL] Calling remote service for {}", serviceURL);
+            return remote.getAll();
         }
         else{
-            System.out.println("[ERROR] No remote service for " + id);
+            logger.error("[WEB-CALL] No remote service for {}", serviceURL);
             return null;
         }
     }

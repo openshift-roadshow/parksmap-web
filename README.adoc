@@ -28,6 +28,12 @@ oc new-app parksmap-web -p APPLICATION_NAME=parksviewer -p APPLICATION_HOSTNAME=
 
 
 == Backends
+Backend services require to have an specific annotation to be discovered:
+
+----
+type: parksmap-backend
+----
+
 Every backend should provide an endpoint located at */ws/info* that will provide link:src/main/java/com/openshift/evg/roadshow/rest/gateway/model/Backend.java[Backend] information.
 
 Here you can find 2 sample implementations:
@@ -66,25 +72,39 @@ public class BackendController{
 == Use
 Once the application has been deployed, you can manually register/unregister a backend:
 
+== Test locally
+This application can be run locally against while having the backend services running on a local openshift instance (all-in-one, oc cluster up or CDK).
+
+=== Run it
+To run the application, you should just:
+
+----
+mvn clean install spring-boot:run
+----
+
+Backends will be registered if they are deployed or when deployed, and unregistered when undeployed.
+
+But you can test registration/unregistration manually.
+
 === Register
 To register a backend:
 
 ----
-curl -i -X POST -H 'Content-Type: application/json' -d '{"id":"nationalparks","service":"http://nationalparks:8080"}' http://parksviewer.apps.127.0.0.1.xip.io/ws/backends/
-curl -i -X POST -H 'Content-Type: application/json' -d '{"id":"mlbparks","service":"http://mlbparks:8080"}' http://parksviewer.apps.127.0.0.1.xip.io/ws/backends/
+curl -i http://parksviewer.apps.127.0.0.1.xip.io/ws/backends/register?service=nationalparks-roadshow.127.0.0.1.xip.io
+curl -i http://parksviewer.apps.127.0.0.1.xip.io/ws/backends/register?service=mlbparks-roadshow.127.0.0.1.xip.io
 ----
 
 === Unregister
 To unregister a backend:
 
 ----
-curl -i -X DELETE -H 'Content-Type: application/json' -d '{"id":"nationalparks","service":"http://nationalparks:8080"}' http://parksviewer.apps.127.0.0.1.xip.io/ws/backends/
-curl -i -X DELETE -H 'Content-Type: application/json' -d '{"id":"mlbparks","service":"http://mlbparks:8080"}' http://parksviewer.apps.127.0.0.1.xip.io/ws/backends/
+curl -i http://parksviewer.apps.127.0.0.1.xip.io/ws/backends/unregister?service=nationalparks-roadshow.127.0.0.1.xip.io
+curl -i http://parksviewer.apps.127.0.0.1.xip.io/ws/backends/unregister?service=mlbparks-roadshow.127.0.0.1.xip.io
 ----
 
 === List backend
 To list available backends:
 
 ----
-curl -i -X GET -H 'Content-Type: application/json'  http://parksviewer.apps.127.0.0.1.xip.io/ws/backends/
+curl -i http://parksviewer.apps.127.0.0.1.xip.io/ws/backends/list
 ----

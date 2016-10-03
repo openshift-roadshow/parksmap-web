@@ -59,7 +59,6 @@
  backend{
     id: "name";
     displayName: "displayName";
-    service: "service|url",
     center: ["",""],
     zoom: 1,
     visible: true,
@@ -93,7 +92,6 @@
         var backend = {
             id: backendFromServer.id,
             displayName: backendFromServer.displayName,
-            service: backendFromServer.service,
             center: backendFromServer.center,
             zoom: backendFromServer.zoom,
             visible: true,
@@ -156,8 +154,8 @@
 		map.addLayer(backend.layer);
 		controls.addOverlay(backend.layer, backend.displayName);
 
-        // Expected dataPoint { name, latitude, longitude }
-		$.get("/ws/data/"+backend.id, function(data){
+        // Expected dataPoint { name, latitude, longitude, additionalInfo }
+		$.get("/ws/data/all?service="+backend.id, function(data){
 			for (var i = 0; i < data.length; i++){
 				dataPoint = data[i];
 				var popupInformation = "<b>" + dataPoint.name + "</b></br>";
@@ -185,7 +183,7 @@
 
 	function initialLoad(){
 		backends.clear();
-		$.get("/ws/backends/", function(data){
+		$.get("/ws/backends/list", function(data){
 			for (var i = 0; i < data.length; i++){
 				var backendFromServer = data[i];
 				var backend = getBackend(backendFromServer);

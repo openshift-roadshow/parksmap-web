@@ -1,66 +1,96 @@
 package com.openshift.evg.roadshow.rest.gateway;
 
-import com.openshift.evg.roadshow.rest.gateway.api.BackendServiceLocal;
 import com.openshift.evg.roadshow.rest.gateway.api.BackendServiceRemote;
 import com.openshift.evg.roadshow.rest.gateway.model.Backend;
 import feign.Feign;
-import feign.gson.GsonDecoder;
-import feign.gson.GsonEncoder;
 import feign.jackson.JacksonDecoder;
 import feign.jackson.JacksonEncoder;
 import feign.jaxrs.JAXRSContract;
 import feign.slf4j.Slf4jLogger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 /**
  * API Gateway. It will dispatch connections to the appropriate backend
- *
+ * <p>
  * Created by jmorales on 24/08/16.
  */
-@RestController
-@RequestMapping("/ws/info")
-public class ApiGatewayController implements BackendServiceLocal {
+@Controller
+public class ApiGatewayController{
 
+    private static final Logger logger = LoggerFactory.getLogger(ApiGatewayController.class);
+    
     private Map<String, BackendServiceRemote> remoteServices = new HashMap<String, BackendServiceRemote>();
 
-
-    public ApiGatewayController(){
-    }
-
-    public final void addBackend(String backendId, String url){
-        if (remoteServices.get(backendId)==null) {
+    /**
+     *
+     *
+     * @param backendId
+     * @param url
+     */
+    public final void add(String backendId, String url) {
+        if (remoteServices.get(backendId) == null) {
             remoteServices.put(backendId, Feign.builder().contract(new JAXRSContract()).encoder(new JacksonEncoder())
-                    .decoder(new JacksonDecoder()).logger(new Slf4jLogger()).target(BackendServiceRemote.class, url));
-            System.out.println("[INFO] Backend ("+backendId+") added to the API Gateway");
-        }else{
-            System.out.println("[ERROR] This backend ("+backendId+") did already exist in the API Gateway");
+                    .decoder(new JacksonDecoder()).target(BackendServiceRemote.class, url));
+            logger.info("Backend ({}) added to the API Gateway", backendId);
+        } else {
+            logger.error("This backend ({}) did already exist in the API Gateway", backendId);
         }
     }
 
-    public final void removeBackend(String backendId){
-        if (remoteServices.get(backendId)!=null) {
+    /**
+     *
+     *
+     * @param backendId
+     */
+    public final void remove(String backendId) {
+        if (remoteServices.get(backendId) != null) {
             remoteServices.remove(backendId);
-            System.out.println("[INFO] Backend ("+backendId+") removed from the API Gateway");
-        }else{
-            System.out.println("[ERROR] This backend ("+backendId+") did NOT exist in the API Gateway");
+            logger.info("Backend ({}) removed from the API Gateway", backendId);
+        } else {
+            logger.error("This backend ({}) did NOT exist in the API Gateway", backendId);
         }
     }
 
-    @RequestMapping(method = RequestMethod.GET, value = "/{id}", produces = "application/json")
-    public Backend get(@PathVariable("id") String id) {
-        BackendServiceRemote remote = remoteServices.get(id);
-        if (remote!=null){
-            System.out.println("Calling remote service for " + id);
-            return remote.get();
+    /**
+     *
+     *
+     * @param backendId
+     * @return
+     */
+    public Backend getFromLocal(String backendId) {
+        BackendServiceRemote backend = null;
+        if ((backend = remoteServices.get(backendId))!=null){
+            logger.info("Calling remote service {}", backendId);
+            try {
+                return backend.get();
+            } catch (Exception e) {
+                logger.error("Error connecting to backend server {}", e.getMessage());
+            }
         }
-        else{
-            System.out.println("[ERROR] No remote service for " + id);
-            return null;
-        }
+        return null;
     }
+
+    /**
+     *
+     *
+     * @param remoteURL
+     * @return
+     */
+    public Backend getFromRemote(String remoteURL) {
+        logger.info("Calling remote service at {}", remoteURL);
+        try {
+            return Feign.builder().contract(new JAXRSContract()).encoder(new JacksonEncoder())
+                    .decoder(new JacksonDecoder()).target(BackendServiceRemote.class, remoteURL).get();
+        } catch (Exception e) {
+            logger.error("Error connecting to backend server {}", e.getMessage());
+        }
+        return null;
+    }
+
 }

@@ -20,16 +20,16 @@ import java.util.List;
 public interface DataServiceRemote {
     @RequestMapping(method = RequestMethod.GET, value = "/", produces = "application/json")
     @GET()
-    @Path("/")
+    @Path("/all")
     @Produces("application/json")
-    public List<DataPoint> getAllParks();
+    public List<DataPoint> getAll();
 
     /*
     @RequestMapping(method = RequestMethod.GET, value = "/within", produces = "application/json")
     @GET()
     @Path("/within")
     @Produces("application/json")
-    public List<DataPoint> findParksWithin(
+    public List<DataPoint> findWithin(
             @RequestParam("lat1") float lat1,
             @RequestParam("lon1") float lon1,
             @RequestParam("lat2") float lat2,
@@ -39,6 +39,6 @@ public interface DataServiceRemote {
     @GET()
     @Path("/centered")
     @Produces("application/json")
-    public List<DataPoint> findParksCentered(@RequestParam("lat") float lat, @RequestParam("lon") float lon, @RequestParam("maxDistance") int maxDistance, @RequestParam("minDistance") int minDistance);
+    public List<DataPoint> findCentered(@RequestParam("lat") float lat, @RequestParam("lon") float lon, @RequestParam("maxDistance") int maxDistance, @RequestParam("minDistance") int minDistance);
 */
 }
