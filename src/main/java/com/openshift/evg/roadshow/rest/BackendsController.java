@@ -2,6 +2,7 @@ package com.openshift.evg.roadshow.rest;
 
 import com.openshift.evg.roadshow.rest.gateway.ApiGatewayController;
 import com.openshift.evg.roadshow.rest.gateway.DataGatewayController;
+import com.openshift.evg.roadshow.rest.gateway.helpers.EndpointWatcher;
 import com.openshift.evg.roadshow.rest.gateway.model.Backend;
 import io.fabric8.kubernetes.api.model.Endpoints;
 import io.fabric8.kubernetes.api.model.Service;
@@ -38,17 +39,14 @@ public class BackendsController implements Watcher<Service> {
 
     private static final String PARKSMAP_BACKEND = "type=parksmap-backend";
 
-    @Value("${parksmap.namespace}")
-    private String NAMESPACE;
+    private String currentNamespace = null;
 
-    @Value("${parksmap.domain}")
-    private String LOCAL_DOMAIN;
-
-    @Value("${parksmap.backends.port}")
-    private String BACKENDS_PORT;
+    @Value("${test}")
+    private Boolean test;
 
     @Autowired
     private KubernetesClient client;
+
     private Watch watch;
 
     @Autowired
@@ -62,11 +60,13 @@ public class BackendsController implements Watcher<Service> {
 
     private Map<String, Backend> registeredBackends = new HashMap<String, Backend>();
 
+    private Map<String, EndpointWatcher> serviceEndpointsWatcher = new HashMap<String, EndpointWatcher>();
+
     BackendsController() {
         if (client != null) {
             logger.info("KubernetesClient configured");
         } else {
-            logger.info("KubernetesClient configured");
+            logger.info("KubernetesClient NOT configured");
         }
     }
 
@@ -74,22 +74,11 @@ public class BackendsController implements Watcher<Service> {
      * This method will append port 8080 to services not ending with .cup (so that are not a route)
      */
     private final String getURLforService(String service) {
-        if (service.endsWith(LOCAL_DOMAIN)) {
-            return "http://" + service;
+        if (test) {
+            return "http://" + service + ".cup";
         } else {
-            return "http://" + service + (BACKENDS_PORT != null ? ":" + BACKENDS_PORT : "");
+            return "http://" + service + ":8080";
         }
-    }
-
-
-    private void addServiceEndpoint(String serviceName, String serviceUrl) {
-        logger.info("AddServiceEndpoint: {} - {}", serviceName, serviceUrl);
-        register(serviceUrl);
-    }
-
-    private void removeServiceEndpoint(String serviceName, String serviceUrl) {
-        logger.info("Service {} - {} deleted", serviceName, serviceUrl);
-        unregister(serviceUrl);
     }
 
     /**
@@ -107,22 +96,38 @@ public class BackendsController implements Watcher<Service> {
          * instead of the service name. This is for external testing.
          */
         String serviceName = service.getMetadata().getName();
-        String serviceurl = service.getMetadata().getLabels().get("route");
-        if (serviceurl == null) {
-            serviceurl = serviceName;
-        }
+//        String serviceurl = service.getMetadata().getLabels().get("route");
+//        if (serviceurl == null) {
+            String serviceurl = serviceName;
+//        }
         if (action == Action.ADDED) {
             logger.info("Service {} added", serviceurl);
-            addServiceEndpoint(serviceName, serviceurl);
+            EndpointWatcher epW = serviceEndpointsWatcher.get(serviceurl);
+            if (epW == null) {
+                epW = new EndpointWatcher(this, client, currentNamespace, serviceName);
+                serviceEndpointsWatcher.put(serviceName, epW);
+            }
+            // register(serviceurl);
         } else if (action == Action.DELETED) {
             logger.info("Service {} deleted", serviceurl);
-            removeServiceEndpoint(serviceName, serviceurl);
+            EndpointWatcher epW = serviceEndpointsWatcher.get(serviceurl);
+            if (epW != null) {
+                epW.close();
+                unregister(serviceurl);
+                serviceEndpointsWatcher.remove(serviceName);
+            }
         } else if (action == Action.MODIFIED) {
             // TODO: Modification of a service is cumbersome. Look into how to best implement this
-            unregister(serviceurl);
-            register(serviceurl);
+            EndpointWatcher epW = serviceEndpointsWatcher.get(serviceurl);
+            serviceEndpointsWatcher.remove(serviceName);
+            epW = new EndpointWatcher(this, client, currentNamespace, serviceName);
+            serviceEndpointsWatcher.put(serviceName, epW);
         } else if (action == Action.ERROR) {
             logger.error("Service ERRORED");
+            EndpointWatcher epW = serviceEndpointsWatcher.get(serviceurl);
+            serviceEndpointsWatcher.remove(serviceName);
+            epW = new EndpointWatcher(this, client, currentNamespace, serviceName);
+            serviceEndpointsWatcher.put(serviceName, epW);
         }
     }
 
@@ -145,20 +150,24 @@ public class BackendsController implements Watcher<Service> {
     public void init() {
         logger.info("Watching for services started");
 
+        if (currentNamespace == null) {
+            currentNamespace = client.getNamespace();
+            logger.info("[INFO] ------------------ {}", currentNamespace);
+        }
+
         // Get the list of current services and register them, and then watch for changes
-        ServiceList services = client.services().inNamespace(NAMESPACE).withLabel(PARKSMAP_BACKEND).list();
+        ServiceList services = client.services().inNamespace(currentNamespace).withLabel(PARKSMAP_BACKEND).list();
         for (Service service : services.getItems()) {
             String serviceName = service.getMetadata().getName();
-            String serviceurl = service.getMetadata().getLabels().get("route");
-            if (serviceurl == null) {
-                serviceurl = serviceName;
+            EndpointWatcher epW = serviceEndpointsWatcher.get(serviceName);
+            if (epW == null) {
+                epW = new EndpointWatcher(this, client, currentNamespace, serviceName);
+                serviceEndpointsWatcher.put(serviceName, epW);
             }
-            // register(serviceurl);
-            addServiceEndpoint(serviceName, serviceurl);
         }
 
         // TODO: This code needs to move to a proper initialization place
-        watch = client.services().inNamespace(NAMESPACE).withLabel(PARKSMAP_BACKEND).watch(this);
+        watch = client.services().inNamespace(currentNamespace).withLabel(PARKSMAP_BACKEND).watch(this);
     }
 
     /**

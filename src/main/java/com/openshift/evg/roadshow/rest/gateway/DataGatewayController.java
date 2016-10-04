@@ -1,8 +1,10 @@
 package com.openshift.evg.roadshow.rest.gateway;
 
 import com.openshift.evg.roadshow.rest.gateway.api.DataServiceRemote;
+import com.openshift.evg.roadshow.rest.gateway.helpers.CustomErrorDecoder;
 import com.openshift.evg.roadshow.rest.gateway.model.DataPoint;
 import feign.Feign;
+import feign.Retryer;
 import feign.jackson.JacksonDecoder;
 import feign.jackson.JacksonEncoder;
 import feign.jaxrs.JAXRSContract;
@@ -13,6 +15,8 @@ import org.springframework.web.bind.annotation.*;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 /**
  * API Gateway. It will dispatch connections to the appropriate backend
@@ -38,7 +42,8 @@ public class DataGatewayController {
     public final void add(String backendId, String url){
         if (remoteServices.get(backendId)==null) {
             remoteServices.put(backendId, Feign.builder().contract(new JAXRSContract()).encoder(new JacksonEncoder())
-                    .decoder(new JacksonDecoder()).target(DataServiceRemote.class, url));
+                    .decoder(new JacksonDecoder())
+                    .target(DataServiceRemote.class, url));
             logger.info("Backend ({}) added to the Data Gateway", backendId);
         }else{
             logger.error("This backend ({}) did already exist in the Data Gateway", backendId);

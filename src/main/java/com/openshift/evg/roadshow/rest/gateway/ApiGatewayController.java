@@ -1,8 +1,10 @@
 package com.openshift.evg.roadshow.rest.gateway;
 
 import com.openshift.evg.roadshow.rest.gateway.api.BackendServiceRemote;
+import com.openshift.evg.roadshow.rest.gateway.helpers.CustomErrorDecoder;
 import com.openshift.evg.roadshow.rest.gateway.model.Backend;
 import feign.Feign;
+import feign.Retryer;
 import feign.jackson.JacksonDecoder;
 import feign.jackson.JacksonEncoder;
 import feign.jaxrs.JAXRSContract;
@@ -14,6 +16,8 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
 import java.util.Map;
+
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 /**
  * API Gateway. It will dispatch connections to the appropriate backend
@@ -36,7 +40,8 @@ public class ApiGatewayController{
     public final void add(String backendId, String url) {
         if (remoteServices.get(backendId) == null) {
             remoteServices.put(backendId, Feign.builder().contract(new JAXRSContract()).encoder(new JacksonEncoder())
-                    .decoder(new JacksonDecoder()).target(BackendServiceRemote.class, url));
+                    .decoder(new JacksonDecoder())
+                    .target(BackendServiceRemote.class, url));
             logger.info("Backend ({}) added to the API Gateway", backendId);
         } else {
             logger.error("This backend ({}) did already exist in the API Gateway", backendId);
@@ -86,7 +91,10 @@ public class ApiGatewayController{
         logger.info("Calling remote service at {}", remoteURL);
         try {
             return Feign.builder().contract(new JAXRSContract()).encoder(new JacksonEncoder())
-                    .decoder(new JacksonDecoder()).target(BackendServiceRemote.class, remoteURL).get();
+                    .decoder(new JacksonDecoder())
+                    .retryer(new Retryer.Default(200, SECONDS.toMillis(1), 5))
+                    .errorDecoder(new CustomErrorDecoder())
+                    .target(BackendServiceRemote.class, remoteURL).get();
         } catch (Exception e) {
             logger.error("Error connecting to backend server {}", e.getMessage());
         }
