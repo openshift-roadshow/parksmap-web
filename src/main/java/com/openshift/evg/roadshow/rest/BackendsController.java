@@ -155,19 +155,24 @@ public class BackendsController implements Watcher<Service> {
             logger.info("[INFO] ------------------ {}", currentNamespace);
         }
 
-        // Get the list of current services and register them, and then watch for changes
-        ServiceList services = client.services().inNamespace(currentNamespace).withLabel(PARKSMAP_BACKEND).list();
-        for (Service service : services.getItems()) {
-            String serviceName = service.getMetadata().getName();
-            EndpointWatcher epW = serviceEndpointsWatcher.get(serviceName);
-            if (epW == null) {
-                epW = new EndpointWatcher(this, client, currentNamespace, serviceName);
-                serviceEndpointsWatcher.put(serviceName, epW);
+        // If there is no proper permission, don't fail misserably
+        try {
+            // Get the list of current services and register them, and then watch for changes
+            ServiceList services = client.services().inNamespace(currentNamespace).withLabel(PARKSMAP_BACKEND).list();
+            for (Service service : services.getItems()) {
+                String serviceName = service.getMetadata().getName();
+                EndpointWatcher epW = serviceEndpointsWatcher.get(serviceName);
+                if (epW == null) {
+                    epW = new EndpointWatcher(this, client, currentNamespace, serviceName);
+                    serviceEndpointsWatcher.put(serviceName, epW);
+                }
             }
-        }
 
-        // TODO: This code needs to move to a proper initialization place
-        watch = client.services().inNamespace(currentNamespace).withLabel(PARKSMAP_BACKEND).watch(this);
+            // TODO: This code needs to move to a proper initialization place
+            watch = client.services().inNamespace(currentNamespace).withLabel(PARKSMAP_BACKEND).watch(this);
+        }catch(KubernetesClientException e){
+            logger.error("Error initialiting application. Probably you need the appropriate permissions to view this namespace {}. {}", currentNamespace, e.getMessage());
+        }
     }
 
     /**
