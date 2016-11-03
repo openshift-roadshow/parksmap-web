@@ -102,46 +102,59 @@
     // Backend types: {popup_marker,marker,heatmap,temp}
     var getBackend = function(backendFromServer){
 		var backend;
-		if (backendFromServer.id=='publicweatherdata'){
+		if (backendFromServer.type=='temp'){
 			backend = {
 				id: backendFromServer.id,
 				displayName: backendFromServer.displayName,
 				center: backendFromServer.center,
 				zoom: backendFromServer.zoom,
-				type: 'temp',
-				visible: true,
-				scope: 'within',
-				maxzoom: 6,
-				//layer: L.webGLHeatmap({size: 30000, autoresize: true, alphaRange: 1, opacity: 1}) // opacity close to 0, less clear
+				type: backendFromServer.type,
+				visible: backendFromServer.visible,
+				scope: backendFromServer.scope,
+				maxzoom: backendFromServer.maxZoom,
 				layer: new L.layerGroup()
 			};
 		}
-		else if (backendFromServer.id=='mlbparks'){
+		else if (backendFromServer.type=='marker'){
 			backend = {
 				id: backendFromServer.id,
 				displayName: backendFromServer.displayName,
 				center: backendFromServer.center,
 				zoom: backendFromServer.zoom,
-				type: 'marker',
-				visible: true,
-				scope: 'within',
-				maxzoom: 1,
+				type: backendFromServer.type,
+				visible: backendFromServer.visible,
+				scope: backendFromServer.scope,
+				maxzoom: backendFromServer.maxZoom,
 				layer: new L.layerGroup()
 			};
 		}
-		else{
+		else if (backendFromServer.type=='cluster'){
 			// TODO: Get scope, type and visible from the backend
         	backend = {
             	id: backendFromServer.id,
             	displayName: backendFromServer.displayName,
             	center: backendFromServer.center,
             	zoom: backendFromServer.zoom,
-				type: 'cluster',
-           		visible: true,
-				scope: 'all',
-				maxzoom:1,
+				type: backendFromServer.type,
+				visible: backendFromServer.visible,
+				scope: backendFromServer.scope,
+				maxzoom: backendFromServer.maxZoom,
             	layer: new L.markerClusterGroup()
-        };
+        	};
+		}
+		else if (backendFromServer.type=='heatmap'){
+			// TODO: Get scope, type and visible from the backend
+			backend = {
+				id: backendFromServer.id,
+				displayName: backendFromServer.displayName,
+				center: backendFromServer.center,
+				zoom: backendFromServer.zoom,
+				type: backendFromServer.type,
+				visible: backendFromServer.visible,
+				scope: backendFromServer.scope,
+				maxzoom: backendFromServer.maxZoom,
+				layer: L.webGLHeatmap({size: 30000, autoresize: true, alphaRange: 1, opacity: 1}) // opacity close to 0, less clear
+			};
 		}
         return backend;
     }
