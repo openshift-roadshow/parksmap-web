@@ -8,20 +8,20 @@ package com.openshift.evg.roadshow.rest.gateway.model;
  */
 public class Backend {
 
-    private static final String BACKEND_TYPE_MARKER  = "marker";
-    private static final String BACKEND_TYPE_CLUSTER = "cluster";
-    private static final String BACKEND_TYPE_TEMP    = "temp";
-    private static final String BACKEND_TYPE_HEATMAP = "heatmap";
+    public static final String BACKEND_TYPE_MARKER  = "marker";
+    public static final String BACKEND_TYPE_CLUSTER = "cluster";
+    public static final String BACKEND_TYPE_TEMP    = "temp";
+    public static final String BACKEND_TYPE_HEATMAP = "heatmap";
 
-    private static final String BACKEND_SCOPE_ALL   = "all";
-    private static final String BACKEND_SCOPE_WITHIN = "within";
+    public static final String BACKEND_SCOPE_ALL   = "all";
+    public static final String BACKEND_SCOPE_WITHIN = "within";
 
     private String id;
     private String displayName;
     private Coordinates center = new Coordinates("0", "0");
     private int zoom = 1;
     private int maxZoom = 1;
-    private String type = BACKEND_TYPE_MARKER;
+    private String type = BACKEND_TYPE_CLUSTER;
     private boolean visible = true;
     private String scope = BACKEND_SCOPE_ALL;
 
