@@ -76,4 +76,23 @@ public class DataGatewayController {
             return null;
         }
     }
+
+    @RequestMapping(method = RequestMethod.GET, value = "/within", produces = "application/json")
+    public List<DataPoint> getWithin(@RequestParam(value="service") String serviceURL,
+                                     @RequestParam("lat1") float lat1,
+                                     @RequestParam("lon1") float lon1,
+                                     @RequestParam("lat2") float lat2,
+                                     @RequestParam("lon2") float lon2) {
+        DataServiceRemote remote = remoteServices.get(serviceURL);
+        if (remote!=null){
+            logger.info("[WEB-CALL] Calling remote service for {}", serviceURL);
+            return remote.findWithin(lat1,lon1,lat2,lon2);
+        }
+        else{
+            logger.error("[WEB-CALL] No remote service for {}", serviceURL);
+            return null;
+        }
+    }
+
+
 }

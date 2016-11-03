@@ -95,7 +95,7 @@ public class EndpointWatcher implements Watcher<Endpoints> {
 
     @Override
     public void onClose(KubernetesClientException e) {
-        close();
+        callback.reinitWatches();
     }
 
     public void close(){

@@ -138,8 +138,18 @@ public class BackendsController implements Watcher<Service> {
      */
     @Override
     public void onClose(KubernetesClientException e) {
-        logger.error("There was an error in the client {}", e.getMessage());
+        logger.error("[ERROR] There was an error in the client {}", e.getMessage());
+        reinitWatches();
+    }
+
+    public void reinitWatches(){
         if (watch != null) watch.close();
+        // If this watch has been closed, we create complete set of new watches
+        for (EndpointWatcher epWatcher: serviceEndpointsWatcher.values()){
+            epWatcher.close();
+        }
+        serviceEndpointsWatcher.clear();
+        init();
     }
 
     /**

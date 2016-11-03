@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.RestController;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
+import javax.ws.rs.QueryParam;
 import java.util.List;
 
 /**
@@ -24,17 +25,16 @@ public interface DataServiceRemote {
     @Produces("application/json")
     public List<DataPoint> getAll();
 
-    /*
     @RequestMapping(method = RequestMethod.GET, value = "/within", produces = "application/json")
     @GET()
     @Path("/within")
     @Produces("application/json")
     public List<DataPoint> findWithin(
-            @RequestParam("lat1") float lat1,
-            @RequestParam("lon1") float lon1,
-            @RequestParam("lat2") float lat2,
-            @RequestParam("lon2") float lon2);
-
+            @RequestParam("lat1") @QueryParam("lat1") float lat1,
+            @RequestParam("lon1") @QueryParam("lon1") float lon1,
+            @RequestParam("lat2") @QueryParam("lat2") float lat2,
+            @RequestParam("lon2") @QueryParam("lon2") float lon2);
+/*
     @RequestMapping(method = RequestMethod.GET, value = "/centered", produces = "application/json")
     @GET()
     @Path("/centered")

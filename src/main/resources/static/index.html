@@ -3,19 +3,27 @@
 <head>
 	<title>Map Visualizer on OpenShift 3</title>
 	<link rel="stylesheet" href="leaflet/leaflet.css"/>
+	<link rel="stylesheet" href="parksmap.css"/>
 	<link href='http://fonts.googleapis.com/css?family=Oswald' rel='stylesheet' type='text/css'>
 	<link rel="stylesheet" href="leaflet/markercluster/MarkerCluster.css"/>
 	<link rel="stylesheet" href="leaflet/markercluster/MarkerCluster.Default.css"/>
-<!--
-	<link href="leaflet/easyButton/easy-button.css" rel="stylesheet"/>
--->
+	<link rel="stylesheet" href="leaflet/font-awesome.min.css">
+	<link rel="stylesheet" href="leaflet/bootstrap.min.css">
+	<link rel="stylesheet" href="leaflet/beautify-marker/leaflet-beautify-marker-icon.css">
+	<link rel="stylesheet" href="leaflet/messagebox/leaflet-messagebox.css">
+
 	<script src="leaflet/leaflet.js"></script>
 	<script src="leaflet/markercluster/leaflet.markercluster.js"></script>
-<!--
-	<script src="leaflet/easyButton/easy-button.js"></script>
--->
+
+	<script src="leaflet/heatmap/webgl-heatmap.js"></script>
+	<script src="leaflet/heatmap/webgl-heatmap-leaflet.js"></script>
+	<script src="leaflet/beautify-marker/leaflet-beautify-marker-icon.js"></script>
+	<script src="leaflet/beautify-marker/leaflet-beautify-marker.js"></script>
+	<script src="leaflet/messagebox/leaflet-messagebox.js"></script>
+	<script src="leaflet/spin.js"></script>
 	<script src="jquery-3.1.0.min.js"></script>
-    <!-- For websockets -->
+	<script src="jquery.spin.js"></script>
+	<!-- For websockets -->
     <script src="sockjs-1.1.0.js"></script>
     <script src="stomp.js"></script>
 
@@ -62,6 +70,9 @@
     center: ["",""],
     zoom: 1,
     visible: true,
+    scope: [all,within],
+    type: [marker,cluster,temp]
+    maxzoom: 5,
     layer: L.markerClusterGroup()
  };
  */
@@ -77,7 +88,7 @@
             // console.log('Connected: ' + frame);
             stompClient.subscribe('/topic/add', function(message){
                 var backend = getBackend(JSON.parse(message.body));
-                addBackend(backend);
+				addBackend(backend);
             });
             stompClient.subscribe('/topic/remove', function(message){
                 var backend = getBackend(JSON.parse(message.body));
@@ -88,15 +99,50 @@
     // TODO: Reconnect automatically. When redeploying application, need to reconnect, otherwise page needs to be reloaded
     // Look for solution like: https://github.com/jmesnil/stomp-websocket/issues/81#issuecomment-246854734
 
+    // Backend types: {popup_marker,marker,heatmap,temp}
     var getBackend = function(backendFromServer){
-        var backend = {
-            id: backendFromServer.id,
-            displayName: backendFromServer.displayName,
-            center: backendFromServer.center,
-            zoom: backendFromServer.zoom,
-            visible: true,
-            layer: new L.markerClusterGroup()
+		var backend;
+		if (backendFromServer.id=='publicweatherdata'){
+			backend = {
+				id: backendFromServer.id,
+				displayName: backendFromServer.displayName,
+				center: backendFromServer.center,
+				zoom: backendFromServer.zoom,
+				type: 'temp',
+				visible: true,
+				scope: 'within',
+				maxzoom: 6,
+				//layer: L.webGLHeatmap({size: 30000, autoresize: true, alphaRange: 1, opacity: 1}) // opacity close to 0, less clear
+				layer: new L.layerGroup()
+			};
+		}
+		else if (backendFromServer.id=='mlbparks'){
+			backend = {
+				id: backendFromServer.id,
+				displayName: backendFromServer.displayName,
+				center: backendFromServer.center,
+				zoom: backendFromServer.zoom,
+				type: 'marker',
+				visible: true,
+				scope: 'within',
+				maxzoom: 1,
+				layer: new L.layerGroup()
+			};
+		}
+		else{
+			// TODO: Get scope, type and visible from the backend
+        	backend = {
+            	id: backendFromServer.id,
+            	displayName: backendFromServer.displayName,
+            	center: backendFromServer.center,
+            	zoom: backendFromServer.zoom,
+				type: 'cluster',
+           		visible: true,
+				scope: 'all',
+				maxzoom:1,
+            	layer: new L.markerClusterGroup()
         };
+		}
         return backend;
     }
 
@@ -140,6 +186,10 @@
 	var controls = L.control.layers(baseLayers, overlays, {collapsed:false} );
 	controls.addTo(map);
 
+	// Add messageBox
+	var options = { timeout: 5000, position: 'bottomleft' }
+	var msgBox = L.control.messagebox(options).addTo(map);
+
 	function addBackend(backend){
 		console.log("Adding layer for backend: " + backend.id);
 
@@ -151,23 +201,86 @@
 
         backends.set(backend.id, backend);
 
+		if (backend.scope=='all') {
+			queryAll(backend);
+		}else if (backend.scope=='within'){
+			queryWithin(backend);
+		}
+
+		// Add layer to the map
 		map.addLayer(backend.layer);
 		controls.addOverlay(backend.layer, backend.displayName);
 
-        // Expected dataPoint { name, latitude, longitude, additionalInfo }
-		$.get("/ws/data/all?service="+backend.id, function(data){
-			for (var i = 0; i < data.length; i++){
-				dataPoint = data[i];
-				var popupInformation = "<b>" + dataPoint.name + "</b></br>";
-				// TODO: Work additionalInfo
-				var marker = L.marker([dataPoint.latitude, dataPoint.longitude]).bindPopup(popupInformation);
-				// console.log("Data: " + dataPoint.name + " ("+ dataPoint.latitude + "," + dataPoint.longitude + ")=" + popupInformation);
-				marker.addTo(backend.layer);
-			}
-		}, "json");
-
 		// Focus map on the backend center and zoom
 		map.setView([backend.center.latitude, backend.center.longitude], backend.zoom);
+	}
+
+	function queryAll(backend){
+		// Expected dataPoint { name, latitude, longitude, details }
+		$('#map').spin();
+		$.get("/ws/data/all?service="+backend.id, function(data){
+			console.log("Displaying " + data.length + " points from backend " + backend.id);
+			var dataPoints = [];
+			for (var i = 0; i < data.length; i++){
+				dataPoint = data[i];
+				if (backend.type=='cluster') {
+					showCluster(backend,dataPoint);
+				}else if (backend.type=='heatmap') {
+					showHeatmap(backend,dataPoint);
+				}else if (backend.type=='marker') {
+					showMarker(backend,dataPoint);
+				}else if (backend.type=='temp') {
+					showTemp(backend,dataPoint);
+				}else{
+					console.log("Backend type " + backend.type + " not supported")
+				}
+			}
+			console.log("Done");
+			$('#map').spin(false);
+		}, "json");
+	}
+
+	function queryWithin(backend) {
+		if (backend.visible == true && backend.scope == 'within'){
+			if (backend.maxzoom<=map.getZoom()) {
+				console.log("Querying data for backend: " + backend.id);
+
+				var bounds = map.getBounds();
+				var url = "/ws/data/within?service=" + backend.id + "&lat1=" + bounds.getNorthWest().lat + "&lon1=" + bounds.getNorthWest().lng + "&lat2=" + bounds.getSouthEast().lat + "&lon2=" + bounds.getSouthEast().lng;
+
+				// Expected dataPoint { name, latitude, longitude, details }
+				$('#map').spin();
+				$.get(url, function (data) {
+					// Clear previous points
+					backend.layer.clearLayers();
+
+					console.log("Displaying " + data.length + " points from backend " + backend.id);
+					var dataPoints = [];
+					for (var i = 0; i < data.length; i++) {
+						dataPoint = data[i];
+						if (backend.type == 'cluster') {
+							showCluster(backend, dataPoint);
+						} else if (backend.type == 'heatmap') {
+							showHeatmap(backend, dataPoint);
+						} else if (backend.type == 'marker') {
+							showMarker(backend, dataPoint);
+						} else if (backend.type == 'temp') {
+							showTemp(backend, dataPoint);
+						} else {
+							console.log("Backend type " + backend.type + " not supported")
+						}
+					}
+					console.log("Done");
+					$('#map').spin(false);
+				}, "json");
+			}else{
+				msgBox.show('No data querying for ' + backend.displayName + ' at this level of zoom');
+			}
+		}
+	}
+
+	function queryWithinAll(){
+		backends.forEach(queryWithin);
 	}
 
 	function removeBackend(backendId){
@@ -181,6 +294,7 @@
         }
 	}
 
+	// TODO: Change initial load to only queryWithins
 	function initialLoad(){
 		backends.clear();
 		$.get("/ws/backends/list", function(data){
@@ -192,6 +306,65 @@
 		}, "json");
 	}
 
+	function showCluster(backend, dataPoint){
+		var popupInformation = "<b>" + dataPoint.name + "</b></br>";
+		// TODO: Work additionalInfo
+		var marker = L.marker([dataPoint.latitude, dataPoint.longitude]).bindPopup(popupInformation);
+		marker.addTo(backend.layer);
+	}
+
+	function showMarker(backend, dataPoint){
+		var popupInformation = "<b>" + dataPoint.name + "</b></br>";
+		// TODO: Work additionalInfo
+		var marker = L.marker([dataPoint.latitude, dataPoint.longitude]).bindPopup(popupInformation);
+		marker.addTo(backend.layer);
+	}
+
+	function showHeatmap(backend, dataPoint){
+		if (isNaN(dataPoint.latitude) || isNaN(dataPoint.longitude)){
+			console.log("Invalid Data Point: " + dataPoint);
+		}else{
+			try {
+				var temp = dataPoint.info.match(/.*Avg:(.*)$/);
+				if (isNaN(temp[1])){
+					console.log("No temp in this datapoint: " + dataPoint);
+				}else {
+					if (dataPoint.latitude!=null && dataPoint.longitude!=null)
+						backend.layer.addDataPoint(dataPoint.latitude, dataPoint.longitude, Math.round(temp[1])+50);
+				}
+			}catch(err){
+				console.log("Error with this dataPoint [" + dataPoint + "]. Error="+ err.message);
+			}
+			backend.layer.draw();
+		}
+	}
+
+	function showTemp(backend, dataPoint) {
+		try{
+			var temp = dataPoint.info.match(/.*Avg:(.*)$/);
+			if (isNaN(temp[1])){
+				console.log("No temp in this datapoint: " + dataPoint);
+			}else {
+				if (dataPoint.latitude!=null && dataPoint.longitude!=null) {
+					var iconColor;
+					if (temp[1] < 0) iconColor = 'royalblue';
+					if (temp[1] >= 0) iconColor = 'skyblue';
+					if (temp[1] >= 10) iconColor = 'yellow';
+					if (temp[1] >= 20) iconColor = 'orange';
+					if (temp[1] >= 30) iconColor = 'orangered';
+					if (temp[1] >= 40) iconColor = 'red';
+					var iconSize = (map.getZoom() - 5 ) * 3;
+					var options = { iconShape: 'circle-dot', borderWidth: iconSize, borderColor: iconColor };
+					var marker = L.marker([dataPoint.latitude, dataPoint.longitude], { icon: L.BeautifyIcon.icon(options) })
+							 .bindPopup("<b>" + temp[0] + "</b>");
+					marker.addTo(backend.layer);
+				}
+			}
+		}catch(err){
+			console.log("Error with this dataPoint [" + dataPoint + "]. Error="+ err.message);
+		}
+	}
+
 	// Set a timeout to load/unload backends
 	setTimeout(function(){
 		// Get notified of registrations/unregistrations
@@ -199,12 +372,31 @@
 	}, 5000);
 
 	map.whenReady(initialLoad).whenReady(connect);
+	map.on('moveend', queryWithinAll);
 	map.on('moveend', function() {
 		console.log("map was panned!");
 		console.log("zoom: " + map.getZoom());    // prints out zoom level
 		console.log("center: " + map.getCenter());    // prints out map center
 	});
+	map.on('overlayadd', onOverlayAdd).on('overlayremove', onOverlayRemove);
 
+	function onOverlayAdd(e){
+		backends.forEach(function (backend,backendId,thisMap) {
+			if (backend.displayName==e.name){
+				// Execute the actions
+				backend.visible = true;
+			}
+		});
+	}
+
+	function onOverlayRemove(e){
+		backends.forEach(function (backend,backendId,thisMap) {
+			if (backend.displayName==e.name){
+				// Execute the actions
+				backend.visible = false;
+			}
+		});
+	}
 </script>
 </body>
 </html>
