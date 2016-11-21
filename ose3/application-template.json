@@ -4,8 +4,9 @@
   "metadata": {
     "name": "parksmap-web",
     "annotations": {
-      "iconClass": "icon-jboss",
-      "description": "Application template for a Web that shows Map of different backend services displaying Parks"
+      "iconClass": "icon-java",
+      "description": "Application template for a Web that shows Map of different backend services displaying Parks",
+      "tags": "roadshow,roadshow-frontend,springboot,java,leaflet"
     }
   },
   "labels": {

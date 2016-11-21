@@ -37,7 +37,8 @@ public class BackendsController implements Watcher<Service> {
 
     private static final Logger logger = LoggerFactory.getLogger(BackendsController.class);
 
-    private static final String PARKSMAP_BACKEND = "type=parksmap-backend";
+    private static final String PARKSMAP_BACKEND_LABEL = "type=parksmap-backend";
+    private static final String ROUTE_LABEL = "route";
 
     private String currentNamespace = null;
 
@@ -74,11 +75,22 @@ public class BackendsController implements Watcher<Service> {
      * This method will append port 8080 to services not ending with .cup (so that are not a route)
      */
     private final String getURLforService(String service) {
-        if (test) {
-            return "http://" + service + ".cup";
+        Service k8sService = client.services().inNamespace(currentNamespace).withName(service).get();
+        String route = k8sService.getMetadata().getLabels().get("route");
+        String serviceURL = "";
+        if ((route!=null) && (!"".equals(route))) {
+            serviceURL = "http://"+route;
         } else {
-            return "http://" + service + ":8080";
+            int port = 8080;
+            try {
+                port = k8sService.getSpec().getPorts().get(0).getPort();
+            }catch(Exception e){
+                logger.error("Service {} does not have a port assigned", service);
+            }
+            serviceURL =  "http://" + service + ":"+ port;
         }
+        logger.info("[INFO] Computed service URL: {}", serviceURL);
+        return serviceURL;
     }
 
     /**
@@ -92,11 +104,11 @@ public class BackendsController implements Watcher<Service> {
         logger.info("Action: {}, Service: {}", action, service);
 
         /*
-         * For testing purposes, we can set a route label that will be used to get to the service
-         * instead of the service name. This is for external testing.
+         * We can set a route label that will be used to get to the service
+         * instead of the service name.
          */
         String serviceName = service.getMetadata().getName();
-//        String serviceurl = service.getMetadata().getLabels().get("route");
+//        String route = service.getMetadata().getLabels().get("route");
 //        if (serviceurl == null) {
             String serviceurl = serviceName;
 //        }
@@ -120,6 +132,7 @@ public class BackendsController implements Watcher<Service> {
             // TODO: Modification of a service is cumbersome. Look into how to best implement this
             EndpointWatcher epW = serviceEndpointsWatcher.get(serviceurl);
             serviceEndpointsWatcher.remove(serviceName);
+            unregister(serviceurl);
             epW = new EndpointWatcher(this, client, currentNamespace, serviceName);
             serviceEndpointsWatcher.put(serviceName, epW);
         } else if (action == Action.ERROR) {
@@ -168,7 +181,7 @@ public class BackendsController implements Watcher<Service> {
         // If there is no proper permission, don't fail misserably
         try {
             // Get the list of current services and register them, and then watch for changes
-            ServiceList services = client.services().inNamespace(currentNamespace).withLabel(PARKSMAP_BACKEND).list();
+            ServiceList services = client.services().inNamespace(currentNamespace).withLabel(PARKSMAP_BACKEND_LABEL).list();
             for (Service service : services.getItems()) {
                 String serviceName = service.getMetadata().getName();
                 EndpointWatcher epW = serviceEndpointsWatcher.get(serviceName);
@@ -179,7 +192,7 @@ public class BackendsController implements Watcher<Service> {
             }
 
             // TODO: This code needs to move to a proper initialization place
-            watch = client.services().inNamespace(currentNamespace).withLabel(PARKSMAP_BACKEND).watch(this);
+            watch = client.services().inNamespace(currentNamespace).withLabel(PARKSMAP_BACKEND_LABEL).watch(this);
         }catch(KubernetesClientException e){
             logger.error("Error initialiting application. Probably you need the appropriate permissions to view this namespace {}. {}", currentNamespace, e.getMessage());
         }
@@ -195,13 +208,14 @@ public class BackendsController implements Watcher<Service> {
 
         Backend newBackend = null;
         // Query for backend data.
-        if ((newBackend = apiGateway.getFromRemote(getURLforService(service))) != null) {
+        String urlForService = getURLforService(service);
+        if ((newBackend = apiGateway.getFromRemote(urlForService)) != null) {
             if (registeredBackends.get(service) == null) {
                 // TODO: BackendId should not be fetched from remote. For now I replace the remote one with the local one.
                 newBackend.setId(service);
                 // Register the new backend
-                apiGateway.add(service, getURLforService(service));
-                dataGateway.add(service, getURLforService(service));
+                apiGateway.add(service, urlForService);
+                dataGateway.add(service, urlForService);
                 registeredBackends.put(service, newBackend);
 
                 logger.info("Backend from server: ({}) ", newBackend);
