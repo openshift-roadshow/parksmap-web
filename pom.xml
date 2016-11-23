@@ -42,7 +42,7 @@
         </dependency>
         <dependency>
             <groupId>io.fabric8</groupId>
-            <artifactId>kubernetes-client</artifactId>
+            <artifactId>openshift-client</artifactId>
             <version>1.4.10</version>
         </dependency>
         <dependency>

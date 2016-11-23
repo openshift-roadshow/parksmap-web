@@ -1,16 +1,15 @@
 package com.openshift.evg.roadshow.rest.gateway.helpers;
 
-import com.openshift.evg.roadshow.rest.BackendsController;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import io.fabric8.kubernetes.api.model.Endpoints;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientException;
 import io.fabric8.kubernetes.client.Watch;
 import io.fabric8.kubernetes.client.Watcher;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.math.BigInteger;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  *
@@ -24,34 +23,34 @@ public class EndpointWatcher implements Watcher<Endpoints> {
 
     private String namespace;
 
-    private String serviceName;
+    private String endpointName;
 
     private KubernetesClient client;
 
     private AtomicInteger endpointsAvailable = new AtomicInteger(0);
 
-    private BackendsController callback;
+    private EndpointRegistrar callback;
 
-    public EndpointWatcher(BackendsController callback, KubernetesClient client, String namespace, String serviceName){
+    public EndpointWatcher(EndpointRegistrar callback, KubernetesClient client, String namespace, String endpointName){
         this.client = client;
         this.namespace = namespace;
-        this.serviceName = serviceName;
+        this.endpointName = endpointName;
         this.callback = callback;
-        logger.info("EndpointWatcher created for: enpoints/{} -n {}", serviceName, namespace);
+        logger.info("EndpointWatcher created for: enpoints/{} -n {}", endpointName, namespace);
 
         if (hasEndpoints()){
-            callback.register(serviceName);
+            callback.register(endpointName);
         }else{
-            callback.unregister(serviceName);
+            callback.unregister(endpointName);
         }
         // Create the watch
-        watch = client.endpoints().inNamespace(namespace).withName(serviceName).watch(this);
+        watch = client.endpoints().inNamespace(namespace).withName(endpointName).watch(this);
 
     }
 
 
     private boolean hasEndpoints(){
-        return hasEndpoints(client.endpoints().inNamespace(namespace).withName(serviceName).get());
+        return hasEndpoints(client.endpoints().inNamespace(namespace).withName(endpointName).get());
     }
     private boolean hasEndpoints(Endpoints endpoints){
         int size = getEndpointsAddressSize(endpoints);
@@ -78,24 +77,24 @@ public class EndpointWatcher implements Watcher<Endpoints> {
             logger.info("Endpoints changed, from {} to {}", previous, current);
             if (previous == 0) {
                 if (current > 0) {
-                    logger.info("There's endpoints for service {} available. Registering", serviceName);
-                    callback.register(serviceName);
+                    logger.info("There are endpoints for {} available. Registering", endpointName);
+                    callback.register(endpointName);
                 }
             }
             if (current == 0) {
                 if (previous > 0) {
-                    logger.info("There's no endpoints for service {}. Unregistering", serviceName);
-                    callback.unregister(serviceName);
+                    logger.info("There's no endpoints for {}. Unregistering", endpointName);
+                    callback.unregister(endpointName);
                 }
             }
         }else{
-            logger.info("Endpoints change not affecting the services");
+            logger.info("Endpoints changes ignored");
         }
     }
 
     @Override
     public void onClose(KubernetesClientException e) {
-        callback.reinitWatches();
+        callback.init();
     }
 
     public void close(){
