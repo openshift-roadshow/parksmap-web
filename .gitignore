@@ -1,3 +1,7 @@
 target
 .DS_STORE
 *.iml
+
+.classpath
+.project
+.settings/
