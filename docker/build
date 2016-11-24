@@ -1,0 +1,19 @@
+pushd ..
+mvn clean install
+cp target/parksmap-web.jar ./docker/parksmap.jar
+popd
+docker build -t "openshiftroadshow/parksmap:latest" .
+
+echo "-------------------------------------------"
+echo ""
+echo "Now to publish the image in dockerhub do:"
+echo ""
+echo " docker login # With your docker credentials"
+echo ""
+echo " docker tag openshiftroadshow/parksmap:latest openshiftroadshow/parksmap:<VERSION>"
+echo ""
+echo " docker push openshiftroadshow/parksmap:<VERSION>"
+echo ""
+echo " NOTE: Replace <VERSION> with the actual version of the image you're building"
+echo ""
+echo "-------------------------------------------"
