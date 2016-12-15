@@ -60,8 +60,8 @@ public class BackendsController implements EndpointRegistrar {
     @RequestMapping(method = RequestMethod.GET, value = "/init")
     @PostConstruct
     public void init() {
-    	serviceWatcher.init(this);
     	routeWatcher.init(this);
+    	serviceWatcher.init(this);
     }
 
     /**
