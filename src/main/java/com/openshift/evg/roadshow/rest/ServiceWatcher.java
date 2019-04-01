@@ -11,40 +11,41 @@ import io.fabric8.kubernetes.client.Watch;
 
 @Component
 public class ServiceWatcher extends AbstractResourceWatcher<Service> {
-	private static final Logger logger = LoggerFactory.getLogger(ServiceWatcher.class);
+  private static final Logger logger = LoggerFactory.getLogger(ServiceWatcher.class);
 
-	private static final String PARKSMAP_BACKEND_LABEL = "type=parksmap-backend";
-	
-	@Override
-	protected List<Service> listWatchedResources() {
-		return getOpenShiftClient().services().inNamespace(getNamespace()).withLabel(PARKSMAP_BACKEND_LABEL).list().getItems();
-	}
+  private static final String PARKSMAP_BACKEND_LABEL = "type=parksmap-backend";
 
-	@Override
-	protected Watch doInit() {
-		return getOpenShiftClient().services().inNamespace(getNamespace()).withLabel(PARKSMAP_BACKEND_LABEL).watch(this);
-	}
+  @Override
+  protected List<Service> listWatchedResources() {
+    return getOpenShiftClient().services().inNamespace(getNamespace()).withLabel(PARKSMAP_BACKEND_LABEL).list()
+        .getItems();
+  }
 
-	@Override
-	protected String getUrl(String serviceName) {
-		List<Service> services = getOpenShiftClient().services().inNamespace(getNamespace()).withLabel(PARKSMAP_BACKEND_LABEL)
-				.withField("metadata.name", serviceName).list().getItems();
-		if (services.isEmpty()) {
-			return null;
-		}
+  @Override
+  protected Watch doInit() {
+    return getOpenShiftClient().services().inNamespace(getNamespace()).withLabel(PARKSMAP_BACKEND_LABEL).watch(this);
+  }
 
-		Service service = services.get(0);
-		String serviceURL = "";
-		int port = 8080;
-		try {
-			port = service.getSpec().getPorts().get(0).getPort();
-		} catch (Exception e) {
-			logger.error("Service {} does not have a port assigned", serviceName);
-		}
+  @Override
+  protected String getUrl(String serviceName) {
+    List<Service> services = getOpenShiftClient().services().inNamespace(getNamespace())
+        .withLabel(PARKSMAP_BACKEND_LABEL).withField("metadata.name", serviceName).list().getItems();
+    if (services.isEmpty()) {
+      return null;
+    }
 
-		serviceURL = "http://" + serviceName + ":" + port;
+    Service service = services.get(0);
+    String serviceURL = "";
+    int port = 8080;
+    try {
+      port = service.getSpec().getPorts().get(0).getPort();
+    } catch (Exception e) {
+      logger.error("Service {} does not have a port assigned", serviceName);
+    }
 
-		logger.info("[INFO] Computed service URL: {}", serviceURL);
-		return serviceURL;
-	}
+    serviceURL = "http://" + serviceName + ":" + port;
+
+    logger.info("[INFO] Computed service URL: {}", serviceURL);
+    return serviceURL;
+  }
 }

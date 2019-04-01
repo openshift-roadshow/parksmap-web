@@ -13,8 +13,8 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/ws/healthz")
 public class Healthz {
 
-    @RequestMapping(method = RequestMethod.GET, value = "/")
-    public String healthz() {
-        return "OK";
-    }
+  @RequestMapping(method = RequestMethod.GET, value = "/")
+  public String healthz() {
+    return "OK";
+  }
 }

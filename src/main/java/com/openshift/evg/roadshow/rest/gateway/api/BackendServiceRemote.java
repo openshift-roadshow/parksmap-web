@@ -4,7 +4,6 @@ import com.openshift.evg.roadshow.rest.gateway.model.Backend;
 
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
-import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
 
@@ -15,8 +14,8 @@ import javax.ws.rs.core.MediaType;
  */
 @Path("/ws/info")
 public interface BackendServiceRemote {
-    @GET
-    @Path("/")
-    @Produces(MediaType.APPLICATION_JSON)
-    public Backend get();
+  @GET
+  @Path("/")
+  @Produces(MediaType.APPLICATION_JSON)
+  public Backend get();
 }

@@ -11,8 +11,8 @@ import org.springframework.context.annotation.ComponentScan;
 @ComponentScan(basePackages = "com.openshift.evg.roadshow.rest")
 public class ParksMapApplication {
 
-    public static void main(String[] args) {
-        SpringApplication.run(ParksMapApplication.class, args);
-    }
+  public static void main(String[] args) {
+    SpringApplication.run(ParksMapApplication.class, args);
+  }
 
 }
