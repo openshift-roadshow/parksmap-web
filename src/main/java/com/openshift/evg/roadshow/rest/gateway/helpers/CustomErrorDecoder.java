@@ -2,11 +2,9 @@ package com.openshift.evg.roadshow.rest.gateway.helpers;
 
 import feign.Response;
 import feign.RetryableException;
-import feign.Util;
 import feign.codec.ErrorDecoder;
 
 import static feign.FeignException.errorStatus;
-import static java.util.concurrent.TimeUnit.SECONDS;
 
 /**
  * Created by jmorales on 04/10/16.
