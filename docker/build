@@ -1,6 +1,6 @@
 pushd ..
 mvn clean install
-cp target/parksmap-web.jar ./docker/parksmap.jar
+cp target/parksmap-web.jar ./docker/parksmap-web.jar
 popd
 docker build -t "openshiftroadshow/parksmap:latest" .
 
