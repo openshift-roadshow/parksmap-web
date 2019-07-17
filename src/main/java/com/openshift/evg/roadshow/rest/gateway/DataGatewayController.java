@@ -37,7 +37,7 @@ public class DataGatewayController {
    */
   public final void add(String backendId, String url) {
     if (remoteServices.get(backendId) == null) {
-      remoteServices.put(backendId, Feign.builder().contract(new JAXRSContract()).encoder(new JacksonEncoder())
+      remoteServices.put(backendId, Feign.builder().client(CustomFeignClient.getClient()).contract(new JAXRSContract()).encoder(new JacksonEncoder())
           .decoder(new JacksonDecoder()).target(DataServiceRemote.class, url));
       logger.info("Backend ({}) added to the Data Gateway", backendId);
     } else {

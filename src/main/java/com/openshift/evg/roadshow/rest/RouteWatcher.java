@@ -37,7 +37,11 @@ public class RouteWatcher extends AbstractResourceWatcher<Route> {
     Route route = routes.get(0);
     String routeUrl = "";
     try {
-      routeUrl = "http://" + route.getSpec().getHost();
+      String protocol = "http://";
+      if((route.getSpec().getTls()!=null)&&(route.getSpec().getTls().getTermination()!=null)){
+        protocol = "https://";
+      }
+      routeUrl = protocol + route.getSpec().getHost();
     } catch (Exception e) {
       logger.error("Route {} does not have a port assigned", routeName);
     }
