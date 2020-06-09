@@ -3,6 +3,7 @@ package com.openshift.evg.roadshow.rest.gateway;
 import com.openshift.evg.roadshow.rest.gateway.api.BackendServiceRemote;
 import com.openshift.evg.roadshow.rest.gateway.helpers.CustomErrorDecoder;
 import com.openshift.evg.roadshow.rest.gateway.model.Backend;
+
 import feign.Feign;
 import feign.Retryer;
 import feign.jackson.JacksonDecoder;
@@ -37,7 +38,7 @@ public class ApiGatewayController {
    */
   public final void add(String backendId, String url) {
     if (remoteServices.get(backendId) == null) {
-      remoteServices.put(backendId, Feign.builder().contract(new JAXRSContract()).encoder(new JacksonEncoder())
+      remoteServices.put(backendId, Feign.builder().client(CustomFeignClient.getClient()).contract(new JAXRSContract()).encoder(new JacksonEncoder())
           .decoder(new JacksonDecoder()).target(BackendServiceRemote.class, url));
       logger.info("Backend ({}) added to the API Gateway", backendId);
     } else {
@@ -87,11 +88,12 @@ public class ApiGatewayController {
   public Backend getFromRemote(String remoteURL) {
     logger.info("Calling remote service at {}", remoteURL);
     try {
-      return Feign.builder().contract(new JAXRSContract()).encoder(new JacksonEncoder()).decoder(new JacksonDecoder())
+      return Feign.builder().client(CustomFeignClient.getClient()).contract(new JAXRSContract()).encoder(new JacksonEncoder()).decoder(new JacksonDecoder())
           .retryer(new Retryer.Default(200, SECONDS.toMillis(1), 5)).errorDecoder(new CustomErrorDecoder())
           .target(BackendServiceRemote.class, remoteURL).get();
     } catch (Exception e) {
       logger.error("Error connecting to backend server {}", e.getMessage());
+      logger.error("Error message",e);
     }
     return null;
   }
