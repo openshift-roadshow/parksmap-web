@@ -269,7 +269,7 @@
 		let longitude = backend.center.longitude;
 
 		if (isGeolocationAvailable()) {
-			let positon = await getGeolocation();
+			let position = await getGeolocation();
 			latitude = position.latitude;
 			longitude = position.longitude;
 		}
