@@ -81,6 +81,22 @@
      ************************/
     var stompClient = null;
 
+ 		const isGeolocationAvailable = () => {
+			if (location.hostname === "localhost" && "geolocation" in navigator) return true;
+			if (location.protocol.substr(0, 5) === "https" && "geolocation" in navigator) return true;
+			return false;
+		}
+
+ 		const getGeolocation = () => {
+			let p = new Promise((resolve, reject) => {
+				navigator.geolocation.getCurrentPosition(pos => {
+					console.log(`User location is ${pos.coords.latitude},${pos.coords.longitude}`);
+					resolve(pos.coords);
+				});
+			});
+			return p;
+		 };
+
     function connect() {
         var socket = new SockJS('/socks-backends');
         stompClient = Stomp.over(socket);
@@ -197,12 +213,20 @@
 		accessToken: mapToken
 	});
 
+	let coords = [27.60567, -18.19336];
+
 	var map = L.map('map', {
-		center: [27.60567, -18.19336],
+		center: coords,
 		zoom: 3,
 		layers: [grayscale]
 	});
 
+	if (isGeolocationAvailable()) {
+		getGeolocation().then(position => {
+			map.setView([position.latitude, position.longitude], 3);
+		});
+	}
+	
 	var baseLayers = {
 		"Grayscale": grayscale,
 		"Streets": streets
@@ -217,7 +241,7 @@
 	var options = { timeout: 5000, position: 'bottomleft' }
 	var msgBox = L.control.messagebox(options).addTo(map);
 
-	function addBackend(backend){
+	async function addBackend(backend){
 		console.log("Adding layer for backend: " + backend.id);
 
         // Check that the backend (by name did not exist, in which case, we'll remove the old one)
@@ -239,7 +263,18 @@
 		controls.addOverlay(backend.layer, backend.displayName);
 
 		// Focus map on the backend center and zoom
-		map.setView([backend.center.latitude, backend.center.longitude], backend.zoom);
+		
+		// if geolocation is available, center on current position.
+		let latitude = backend.center.latitude;
+		let longitude = backend.center.longitude;
+
+		if (isGeolocationAvailable()) {
+			let positon = await getGeolocation();
+			latitude = position.latitude;
+			longitude = position.longitude;
+		}
+
+		map.setView([latitude, longitude], backend.zoom);
 	}
 
 	function queryAll(backend){
