@@ -84,6 +84,7 @@ public class BackendsController implements EndpointRegistrar {
         	if ((newBackend = apiGateway.getFromRemote(endpointUrl)) != null) {
                 // TODO: BackendId should not be fetched from remote. For now I replace the remote one with the local one.
                 newBackend.setId(endpoint);
+                
                 // Register the new backend
                 apiGateway.add(endpoint, endpointUrl);
                 dataGateway.add(endpoint, endpointUrl);
@@ -119,6 +120,15 @@ public class BackendsController implements EndpointRegistrar {
     @RequestMapping(method = RequestMethod.GET, value = "/list", produces = "application/json")
     public List<Backend> getAll() {
         logger.info("Backends: getAll");
+        
+        // refresh backend metadata
+    	for (String endpoint : registeredBackends.keySet()) {
+			Backend updatedBackend = apiGateway.getFromLocal(endpoint);
+			updatedBackend.setId(endpoint);
+			registeredBackends.put(endpoint, updatedBackend);
+			logger.info("Backend {} updated from server: ({}) ", endpoint, updatedBackend);
+    	}
+        
         return new ArrayList<Backend>(registeredBackends.values());
     }
 }
